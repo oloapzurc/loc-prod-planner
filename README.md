@@ -122,6 +122,32 @@ A manual pick always wins, even if it double-books that person or breaks a rule.
 You'll get a warning saying exactly what it costs, and the booking is marked
 **pinned** so nothing moves it later.
 
+Automatic mixing prefers available **Advanced** mixers for ordinary work at either
+level. **Developing** mixers are the fallback for Developing-level projects, ahead
+of the overflow reserve; Advanced projects still require an Advanced mixer. Music
+specialist ranking and Atmos room requirements still apply. Re-plan follows the
+same preference, with avoiding overlaps and reserve use ahead of level preference,
+and level preference ahead of balancing total workload.
+
+### Phase dates (since 15 Oct 2026)
+
+Every project saved from the form states **when each phase runs**: a start and end date
+for Dub, Edit and Mix. Leave a phase blank if the project doesn't have it. Dates snap to
+their Monday–Sunday week. Dub and edit may overlap; the mix starts after both, and
+everything ends by the deadline. The planner never moves these dates — plotting and
+re-plan only choose **who**. Older projects saved before dates existed have none, and
+still plot backward from their deadline.
+
+The dates live in six columns at the end of the Projects tab (**Dub start** … **Mix
+end**). The app creates them on its first save to a sheet that lacks them.
+
+**One person recording and editing the same project in the same week is one job, not an
+overlap.** It gets no outline, no warning, and doesn't count in Analysis. Mixing beside
+either, or anything on another project, still counts. Keeping a project's dub and edit
+with the same person is **preferred, never required**: it ranks below every overlap and
+reserve rule, and above balancing total workload, so they are split only when keeping
+them together would cost an overlap or the reserve.
+
 ### Freezing a project
 
 The **Lock** button on each Projects row. A locked project is left completely alone
@@ -202,8 +228,10 @@ so check which of the two you're looking at first.
 
 **Someone idle wasn't given work you expected.** Sheet → *Engineer Assignment →
 Why this mixer?* and type the project title. It lists every engineer and the reason
-each was or wasn't eligible. The usual answer is that the tool balances **total**
-workload across all phases, so a busy recordist gets passed over for a mix.
+each was or wasn't eligible. For ordinary mixing, the tool prefers available
+Advanced mixers first and then balances **total** workload within the eligible tier.
+Developing mixers remain a fallback; a busy recordist may also be passed over
+because of their existing bookings.
 
 **Anything else odd.** Sheet → *Engineer Assignment → Check bookings for problems*.
 It reports roster mistakes, duplicated rows and bad data in one go. Worth running

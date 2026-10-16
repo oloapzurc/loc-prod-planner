@@ -67,16 +67,23 @@ const APPROVED_HUNKS = {
 // can go to different engineers. There are now three picks, one per role.
 //
 // Everything OUTSIDE these regions is still byte-compared, which is what matters:
-// the week arithmetic, the roster build, the backward phase plotting (rule 2 —
-// verified 0/72 against real data), the eligibility pools (rule 7 client
+// the week arithmetic, the roster build, the eligibility pools (rule 7 client
 // routing), and the entire mix pool-and-force ladder below the fallback fix
-// (rules 5 and 8).
+// (rules 5 and 8). The backward phase plotting (rule 2 — verified 0/72 against real
+// data) moved inside the phase-window regions on 2026-10-15, when per-phase dates took
+// precedence; it is unchanged there and still runs for projects without dates.
 const REWRITTEN = {
   // replan.js is a SECOND implementation of the same rules, so the two sharing
   // changes have to land here as well or a re-plan silently undoes what the plot
   // decided: leaving pair-only search here reverted N-way shares straight back
   // into forced overlaps.
   'engine/replan.js': [
+    {
+      what: 'phase windows — per-phase dates win, backward plotting for older rows (Tara, 2026-10-15)',
+      refStart:  '    const d = num(p.dub_weeks), ed = num(p.edit_weeks), m = num(p.mix_weeks);',
+      liveStart: '    // Phase windows -- mirrors assign.js.',
+      end:       '    const isMusic = yes(p.music_songs);',
+    },
     {
       what: 'the share emitter — real phase per week, N engineers instead of two',
       refStart:  '            const shared = tryShare(pool, reWks);',
@@ -92,7 +99,15 @@ const REWRITTEN = {
   ],
   'engine/assign.js': [
     {
-      what: 'the mix assignment — Developing work may fall back to a senior mixer',
+      // The backward plotting below the dates branch is still the original arithmetic,
+      // kept for projects entered before dates existed.
+      what: 'phase windows — per-phase dates win, backward plotting for older rows (Tara, 2026-10-15)',
+      refStart:  '  const dlW = widx(proj.deadline);',
+      liveStart: '  // Phase windows. Per-phase dates win when the project has them',
+      end:       '  const recedit = new Set([...dubw, ...editw]);',
+    },
+    {
+      what: 'the mix assignment — Advanced-first, Developing fallback (Tara, 2026-10-14)',
       refStart:  "    const needAdv = String(proj.mix_level_required).trim() === 'Advanced';",
       liveStart: "    const needAdv = String(proj.mix_level_required).trim() === 'Advanced';",
       end:       "    assignments.push(['Mix', mixer, mixw]);",
@@ -206,13 +221,18 @@ const APPROVED_SUBS = {
      "    const hasAtmos = n => !needAtmos || eng[n].atmos;"],
     ["        const regular = Object.keys(eng).filter(n => eng[n].mix && !eng[n].overflow &&\n" +
      "          (needAdv ? eng[n].lvl === 'Advanced' : eng[n].lvl === 'Developing'));",
-     "        const regular = Object.keys(eng).filter(n => eng[n].mix && !eng[n].overflow &&\n" +
-     "          hasAtmos(n) &&\n" +
-     "          (needAdv ? eng[n].lvl === 'Advanced' : eng[n].lvl === 'Developing'));"],
+     "        // Tara, 2026-10-14: the same Advanced-first ladder as the plot engine.\n" +
+     "        const canMix = n => eng[n].mix && !eng[n].overflow && hasAtmos(n);\n" +
+     "        const regular = Object.keys(eng).filter(n => canMix(n) && eng[n].lvl === 'Advanced');\n" +
+     "        const fallback = needAdv ? []\n" +
+     "          : Object.keys(eng).filter(n => canMix(n) && eng[n].lvl === 'Developing');"],
+    ["        let mp = regular.filter(n => free(n, mixw));",
+     "        let mp = regular.filter(n => free(n, mixw));\n" +
+     "        if (!mp.length) mp = fallback.filter(n => free(n, mixw));"],
     ["            (!needAdv || eng[n].lvl === 'Advanced') && free(n, mixw));",
      "            (!needAdv || eng[n].lvl === 'Advanced') && hasAtmos(n) && free(n, mixw));"],
     ["            const all = regular.concat(Object.keys(eng).filter(n => eng[n].overflow && eng[n].mix && (!needAdv || eng[n].lvl === 'Advanced')));",
-     "            const all = regular.concat(Object.keys(eng).filter(n => eng[n].overflow && eng[n].mix && (!needAdv || eng[n].lvl === 'Advanced') && hasAtmos(n)));"],
+     "            const all = regular.concat(fallback).concat(Object.keys(eng).filter(n => eng[n].overflow && eng[n].mix && (!needAdv || eng[n].lvl === 'Advanced') && hasAtmos(n)));"],
     ['overflow: yes(r.overflow_only), nonNetflix: yes(r.non_netflix_router) };',
      'overflow: yes(r.overflow_only), specials: yes(r.does_specials),\n' +
      '    atmos: yes(r.atmos) };'],

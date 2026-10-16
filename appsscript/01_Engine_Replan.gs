@@ -1,8 +1,5 @@
-// Ported verbatim from the build handoff (HANDOFF §5: "port as-is, do not
-// rewrite"). The ONLY change from the handed-over file is the removal of the
-// trailing `module.exports` line, which §5 explicitly permits and Apps Script
-// has no use for. test/engine_drift.test.js asserts that is still the only
-// difference — do not edit the logic here.
+// Based on the build handoff. Intentional policy changes are recorded in
+// test/engine_drift.test.js; all other engine logic remains drift-checked.
 
 // opts.keepOrder — assign projects in the order given instead of sorting by
 // deadline. Ordering changes only WHO is picked; every phase window is still
@@ -170,13 +167,23 @@ function replan(projectRows, bookingRows, engineerRows, todayISO, opts) {
 
   for (const p of projects) {
     const title = p.project_title;
-    const d = num(p.dub_weeks), ed = num(p.edit_weeks), m = num(p.mix_weeks);
-    const dlW = widx(p.deadline);
-    const mixw = block(dlW - 1, m);
-    const editEnd = mixw.size ? Math.min(...mixw) - 1 : dlW - 1;
-    const editw = block(editEnd, ed);
-    const dubEnd = editw.size ? Math.min(...editw) - 1 : editEnd;
-    const dubw = block(dubEnd, d);
+    // Phase windows -- mirrors assign.js. Per-phase dates win when the project has
+    // them (Tara, 2026-10-15); an older row without dates plots backward as before.
+    const span = (a, z) => { const s = new Set();
+      if (a && z) for (let w = widx(a); w <= widx(z); w++) s.add(w); return s; };
+    let dubw, editw, mixw;
+    if (p.dub_from || p.edit_from || p.mix_from) {
+      dubw = span(p.dub_from, p.dub_to);
+      editw = span(p.edit_from, p.edit_to);
+      mixw = span(p.mix_from, p.mix_to);
+    } else {
+      const dlW = widx(p.deadline);
+      mixw = block(dlW - 1, num(p.mix_weeks));
+      const editEnd = mixw.size ? Math.min(...mixw) - 1 : dlW - 1;
+      editw = block(editEnd, num(p.edit_weeks));
+      const dubEnd = editw.size ? Math.min(...editw) - 1 : editEnd;
+      dubw = block(dubEnd, num(p.dub_weeks));
+    }
     const isMusic = yes(p.music_songs);
     const isSpecial = yes(p.special_project);
     const needAdv = String(p.mix_level_required).trim() !== 'Developing';
@@ -245,10 +252,13 @@ function replan(projectRows, bookingRows, engineerRows, todayISO, opts) {
       if (keepPhase('Mix')) {
         for (const b of (currentBy[`${title}||Mix`] || [])) proposed.push({ ...b, source: b.source || 'kept' });
       } else {
-        const regular = Object.keys(eng).filter(n => eng[n].mix && !eng[n].overflow &&
-          hasAtmos(n) &&
-          (needAdv ? eng[n].lvl === 'Advanced' : eng[n].lvl === 'Developing'));
+        // Tara, 2026-10-14: the same Advanced-first ladder as the plot engine.
+        const canMix = n => eng[n].mix && !eng[n].overflow && hasAtmos(n);
+        const regular = Object.keys(eng).filter(n => canMix(n) && eng[n].lvl === 'Advanced');
+        const fallback = needAdv ? []
+          : Object.keys(eng).filter(n => canMix(n) && eng[n].lvl === 'Developing');
         let mp = regular.filter(n => free(n, mixw));
+        if (!mp.length) mp = fallback.filter(n => free(n, mixw));
         // A music mix NEVER leaves the specialists — mirrors the assign engine, which
         // gives music its own branch precisely so the fallbacks below cannot be reached.
         // This used to restrict only the FREE pool: when no specialist was free it fell
@@ -274,7 +284,7 @@ function replan(projectRows, bookingRows, engineerRows, todayISO, opts) {
             (!needAdv || eng[n].lvl === 'Advanced') && hasAtmos(n) && free(n, mixw));
           if (ofl.length) { const who = pick(ofl, Math.min(...mixw)); commit(who, mixw); emit('Mix', who, mixw, 'overflow'); }
           else {
-            const all = regular.concat(Object.keys(eng).filter(n => eng[n].overflow && eng[n].mix && (!needAdv || eng[n].lvl === 'Advanced') && hasAtmos(n)));
+            const all = regular.concat(fallback).concat(Object.keys(eng).filter(n => eng[n].overflow && eng[n].mix && (!needAdv || eng[n].lvl === 'Advanced') && hasAtmos(n)));
             const f = forcePick(all, mixw); const ov = inter(eng[f].busy, mixw).length;
             commit(f, mixw); forcedCount += 1; emit('Mix', f, mixw, `FORCED OVERLAP (${ov}wk)`);
           }
